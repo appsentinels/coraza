@@ -1,5 +1,4 @@
-#module github.com/corazawaf/coraza/v3
-module github.com/appsentinels/coraza@v1.0.0
+module github.com/corazawaf/coraza/v3
 
 go 1.18
 
