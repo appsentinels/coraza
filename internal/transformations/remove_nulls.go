@@ -12,3 +12,9 @@ func removeNulls(data string) (string, bool, error) {
 	transformedData := strings.ReplaceAll(data, "\x00", "")
 	return transformedData, len(data) != len(transformedData), nil
 }
+
+//MJ Changes
+func removeNullsOptimized(data string) (string, bool, error) {
+	transformedData := strings.ReplaceAll(data, "\x00", "")
+	return transformedData, true, nil
+}

@@ -5,11 +5,13 @@ package corazawaf
 
 import (
 	"fmt"
+	"os"
 	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 	"unsafe"
 
 	"github.com/corazawaf/coraza/v3/experimental/plugins/macro"
@@ -153,6 +155,82 @@ type Rule struct {
 	withPhaseUnknownVariable bool
 }
 
+//MJ Changes [ I made a mess by making this global .. ideally should have associated corazawaf and stored there for it is independent of each instance
+var print_transformation_rules bool = false
+var record_rule_timings bool = false
+var RulesTimingRecord map[int]time.Duration = make(map[int]time.Duration)
+var RulesTimingRecordMutex sync.Mutex
+
+func init() {
+	// Initialization code here.
+	if val, ok := os.LookupEnv("PRINT_TRANSFORMATION_RULES"); ok {
+		if val == "true" {
+			print_transformation_rules = true
+		} else {
+			print_transformation_rules = false
+		}
+	} else {
+		print_transformation_rules = false
+	}
+	fmt.Println("rules.go init print_transformation_rules", print_transformation_rules)
+	if val, ok := os.LookupEnv("RECORD_RULE_TIMINGS"); ok {
+		if val == "true" {
+			record_rule_timings = true
+		} else {
+			record_rule_timings = false
+		}
+	} else {
+		record_rule_timings = false
+	}
+	fmt.Println("rules.go init record_rule_timings", record_rule_timings)
+}
+
+func GetRuleTimingsRecord() map[int]time.Duration {
+	return RulesTimingRecord
+	/*fmt.Println("Rule Timings: ")
+		for key, value := range RulesTimingRecord {
+	        fmt.Println("RuleId: ", key, " elapsedTime: ", value)
+	    }
+	*/
+}
+
+func ClearRuleTimingsRecord() {
+	RulesTimingRecordMutex.Lock()
+	RulesTimingRecord = make(map[int]time.Duration)
+	RulesTimingRecordMutex.Unlock()
+	fmt.Println("rules.go ClearRuleTimingsRecord")
+}
+
+func UpdatePrintTransformationRules(val bool) bool {
+	prev := print_transformation_rules
+	print_transformation_rules = val
+	fmt.Println("rules.go UpdatePrintTransformationRules: ", prev, val)
+	return prev
+}
+
+func UpdateRecordRuleTimings(val bool) bool {
+	prev := record_rule_timings
+	record_rule_timings = val
+	fmt.Println("rules.go UpdateRecordRuleTimings: ", prev, val)
+	return prev
+}
+
+func (r *Rule) RecordRuleTimings(startTime *time.Time) {
+	if startTime != nil {
+		elapsedTime := time.Since(*startTime)
+		RulesTimingRecordMutex.Lock()
+		val, ok := RulesTimingRecord[r.ID_]
+		if ok {
+			val = val + elapsedTime
+		}
+		RulesTimingRecord[r.ID_] = val
+		RulesTimingRecordMutex.Unlock()
+	}
+
+}
+
+//MJ Changes
+
 func (r *Rule) ParentID() int {
 	return r.ParentID_
 }
@@ -175,6 +253,13 @@ func (r *Rule) Evaluate(phase types.RulePhase, tx plugintypes.TransactionState, 
 const noID = 0
 
 func (r *Rule) doEvaluate(phase types.RulePhase, tx *Transaction, collectiveMatchedValues *[]types.MatchData, chainLevel int, cache map[transformationKey]*transformationValue) []types.MatchData {
+	var startTime *time.Time = nil
+
+	if record_rule_timings == true {
+		currentTime := time.Now()
+		startTime = &currentTime
+	}
+
 	tx.Capture = r.Capture
 
 	rid := r.ID_
@@ -323,6 +408,7 @@ func (r *Rule) doEvaluate(phase types.RulePhase, tx *Transaction, collectiveMatc
 	}
 
 	if len(matchedValues) == 0 {
+		r.RecordRuleTimings(startTime)
 		return matchedValues
 	}
 
@@ -335,6 +421,7 @@ func (r *Rule) doEvaluate(phase types.RulePhase, tx *Transaction, collectiveMatc
 			tx.DebugLogger().Debug().Int("rule_id", rid).Msg("Evaluating rule chain")
 			matchedChainValues := nr.doEvaluate(phase, tx, collectiveMatchedValues, chainLevel, cache)
 			if len(matchedChainValues) == 0 {
+				r.RecordRuleTimings(startTime)
 				return matchedChainValues
 			}
 			matchedValues = append(matchedValues, matchedChainValues...)
@@ -368,22 +455,39 @@ func (r *Rule) doEvaluate(phase types.RulePhase, tx *Transaction, collectiveMatc
 			tx.MatchRule(r, matchedValues)
 		}
 	}
+	r.RecordRuleTimings(startTime)
 	return matchedValues
 }
 
 func (r *Rule) transformArg(arg types.MatchData, argIdx int, cache map[transformationKey]*transformationValue) ([]string, []error) {
+	argKey1 := arg.Key()
 	if r.MultiMatch {
 		// TODOs:
 		// - We don't need to run every transformation. We could try for each until found
 		// - Cache is not used for multimatch
+		if print_transformation_rules {
+			fmt.Println("\n---- transformArg:---- MultiMatch details: ruleId: ", r.ID_, " Parent Rule: ", r.ParentID_, " key: ", argKey1, "Value: ", arg.Value(), " args: ", arg)
+		}
 		return r.executeTransformationsMultimatch(arg.Value())
 	} else {
+		if len(r.transformations) > 0 {
+			if print_transformation_rules {
+				fmt.Println("\n---- transformArg: ---- details: ruleId: ", r.ID_, " Parent Rule: ", r.ParentID_, " key: ", argKey1, "Value: ", arg.Value())
+				fmt.Println("  transformArg: args: ", arg, " key: (", (*reflect.StringHeader)(unsafe.Pointer(&argKey1)).Data, argIdx, arg.Variable(), r.transformationsID, ")")
+				fmt.Println("  transformArg: transformations: ", r.transformations)
+			}
+		}
+
+		startTime := time.Now()
 		switch {
 		case len(r.transformations) == 0:
 			return []string{arg.Value()}, nil
 		case arg.Variable().Name() == "TX":
 			// no cache for TX
 			arg, errs := r.executeTransformations(arg.Value())
+			if print_transformation_rules {
+				fmt.Println("---- transformArg---- TX: ", r.ID_, r.ParentID_, time.Since(startTime), arg)
+			}
 			return []string{arg}, errs
 		default:
 			// NOTE: See comment on transformationKey struct to understand this hacky code
@@ -396,6 +500,9 @@ func (r *Rule) transformArg(arg types.MatchData, argIdx int, cache map[transform
 				transformationsID: r.transformationsID,
 			}
 			if cached, ok := cache[key]; ok {
+				if print_transformation_rules {
+					fmt.Println("---- transformArg: ----: cached", time.Since(startTime), cached.args)
+				}
 				return cached.args, cached.errs
 			} else {
 				ars, es := r.executeTransformations(arg.Value())
@@ -404,6 +511,9 @@ func (r *Rule) transformArg(arg types.MatchData, argIdx int, cache map[transform
 				cache[key] = &transformationValue{
 					args: args,
 					errs: es,
+				}
+				if print_transformation_rules {
+					fmt.Println("---- transformArg: ----: non-cached", time.Since(startTime), args)
 				}
 				return args, errs
 			}

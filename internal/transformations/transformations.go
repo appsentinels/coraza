@@ -37,7 +37,8 @@ func init() {
 	Register("htmlEntityDecode", htmlEntityDecode)
 	Register("jsDecode", jsDecode)
 	Register("length", length)
-	Register("lowercase", lowerCase)
+	//Register("lowercase", lowerCase)
+	Register("lowercase", lowerCaseOptimized)
 	Register("md5", md5T)
 	Register("none", none)
 	Register("normalisePath", normalisePath)
@@ -46,7 +47,8 @@ func init() {
 	Register("normalizePathWin", normalisePathWin)
 	Register("removeComments", removeComments)
 	Register("removeCommentsChar", removeCommentsChar)
-	Register("removeNulls", removeNulls)
+	//Register("removeNulls", removeNulls)
+	Register("removeNulls", removeNullsOptimized)
 	Register("removeWhitespace", removeWhitespace)
 	Register("replaceComments", replaceComments)
 	Register("replaceNulls", replaceNulls)
@@ -58,4 +60,5 @@ func init() {
 	Register("trim", trim)
 	Register("trimLeft", trimLeft)
 	Register("trimRight", trimRight)
+	fmt.Println("----- All Transformations-----", transformations) //MJ c
 }

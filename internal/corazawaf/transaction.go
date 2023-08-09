@@ -5,6 +5,7 @@ package corazawaf
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -12,6 +13,7 @@ import (
 	"mime"
 	"net/url"
 	"path/filepath"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -463,6 +465,11 @@ func (tx *Transaction) matchVariable(match *corazarules.MatchData) {
 
 // MatchRule Matches a rule to be logged
 func (tx *Transaction) MatchRule(r *Rule, mds []types.MatchData) {
+	if len(r.RuleMetadata.Tags_) == 0 { // //"regexp" MJ Change
+		//if !r.Log
+		tx.debugLogger.Debug().Int("rule_id", r.ID_).Msg("Rule matched no log")
+		return
+	}
 	tx.debugLogger.Debug().Int("rule_id", r.ID_).Msg("Rule matched")
 	// tx.MatchedRules = append(tx.MatchedRules, mr)
 
@@ -930,6 +937,7 @@ func (tx *Transaction) ReadRequestBodyFrom(r io.Reader) (*types.Interruption, in
 //
 // Remember to check for a possible intervention.
 func (tx *Transaction) ProcessRequestBody() (*types.Interruption, error) {
+	debug.PrintStack() //in our deployment we should never reach here -- can remove after testing TODO MJ
 	if tx.RuleEngine == types.RuleEngineOff {
 		return nil, nil
 	}
@@ -1002,6 +1010,63 @@ func (tx *Transaction) ProcessRequestBody() (*types.Interruption, error) {
 		return tx.interruption, nil
 	}
 
+	tx.WAF.Rules.Eval(types.PhaseRequestBody, tx)
+	return tx.interruption, nil
+}
+
+//same as ProcessRequest only it does processing on the provided buffer
+func (tx *Transaction) ProcessRequestBytes(b []byte) (*types.Interruption, error) { //MJ CHANGES
+	//debug.PrintStack()
+	if tx.RuleEngine == types.RuleEngineOff {
+		return nil, nil
+	}
+	if tx.interruption != nil {
+		tx.debugLogger.Error().Msg("Calling ProcessRequestBody but there is a preexisting interruption")
+		return tx.interruption, nil
+	}
+	if tx.lastPhase != types.PhaseRequestHeaders {
+		if tx.lastPhase >= types.PhaseRequestBody {
+			// Phase already evaluated or skipped
+			tx.debugLogger.Warn().Msg("ProcessRequestBody should have already been called")
+		} else {
+			tx.debugLogger.Debug().Msg("Skipping request body processing, anomalous call before request headers evaluation")
+		}
+		return nil, nil
+	}
+	mime := ""
+	if m := tx.variables.requestHeaders.Get("content-type"); len(m) > 0 {
+		mime = m[0]
+	}
+	reader := bytes.NewReader(b)
+	rbp := tx.variables.reqbodyProcessor.Get()
+	if tx.ForceRequestBodyVariable {
+		// We force URLENCODED if mime is x-www... or we have an empty RBP and ForceRequestBodyVariable
+		if rbp == "" {
+			rbp = "URLENCODED"
+		}
+		tx.variables.reqbodyProcessor.Set(rbp)
+	}
+	rbp = strings.ToLower(rbp)
+	if rbp == "" {
+		// so there is no bodyprocessor, we don't want to generate an error
+		tx.WAF.Rules.Eval(types.PhaseRequestBody, tx)
+		return tx.interruption, nil
+	}
+	bodyprocessor, err := bodyprocessors.GetBodyProcessor(rbp)
+	if err != nil {
+		tx.generateRequestBodyError(errors.New("invalid body processor"))
+		tx.WAF.Rules.Eval(types.PhaseRequestBody, tx)
+		return tx.interruption, nil
+	}
+	if err := bodyprocessor.ProcessRequest(reader, tx.Variables(), plugintypes.BodyProcessorOptions{
+		Mime:        mime,
+		StoragePath: tx.WAF.UploadDir,
+	}); err != nil {
+		tx.debugLogger.Error().Err(err).Msg("Failed to process request body")
+		tx.generateRequestBodyError(err)
+		tx.WAF.Rules.Eval(types.PhaseRequestBody, tx)
+		return tx.interruption, nil
+	}
 	tx.WAF.Rules.Eval(types.PhaseRequestBody, tx)
 	return tx.interruption, nil
 }

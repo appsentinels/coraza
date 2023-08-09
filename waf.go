@@ -22,6 +22,9 @@ type WAF interface {
 	// NewTransaction Creates a new initialized transaction for this WAF instance
 	NewTransaction() types.Transaction
 	NewTransactionWithID(id string) types.Transaction
+	// MJ Change
+	WafGetRulesInfo(flagName string) interface{}
+	WafUpdateRuleFlags(flagName string, flagValue interface{}) bool
 }
 
 // NewWAF creates a new WAF instance with the provided configuration.
@@ -123,3 +126,32 @@ func (w wafWrapper) NewTransaction() types.Transaction {
 func (w wafWrapper) NewTransactionWithID(id string) types.Transaction {
 	return w.waf.NewTransactionWithID(id)
 }
+
+//MJ changes [ --
+func (w wafWrapper) WafGetRulesInfo(flagName string) interface{} {
+	return corazawaf.GetRuleTimingsRecord() //only 1 supported as of now
+}
+
+func (w wafWrapper) WafUpdateRuleFlags(flagName string, flagValue interface{}) bool {
+	ret_val := false
+	switch flagName {
+	case "printtransformationrule":
+		if val, ok := flagValue.(bool); ok {
+			corazawaf.UpdatePrintTransformationRules(val)
+			ret_val = true
+		}
+	case "recordruletimings":
+		if val, ok := flagValue.(bool); ok {
+			corazawaf.UpdatePrintTransformationRules(val)
+			ret_val = true
+		}
+	case "recordruletimingsclear":
+		corazawaf.ClearRuleTimingsRecord()
+		ret_val = true
+	default:
+		fmt.Println("WafUpdateRuleFlags: Invalid parameters: ", flagName, flagValue)
+	}
+	return ret_val
+}
+
+//MJ Changes ]
