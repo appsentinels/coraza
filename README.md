@@ -3,13 +3,13 @@
   <span>Coraza - Web Application Firewall</span>
 </h1>
 
-[![Regression Tests](https://github.com/appsentinels/coraza/actions/workflows/regression.yml/badge.svg)](https://github.com/corazawaf/coraza/actions/workflows/regression.yml)
+[![Regression Tests](https://github.com/appsentinels/coraza/actions/workflows/regression.yml/badge.svg)](https://github.com/appsentinels/coraza/actions/workflows/regression.yml)
 [![Coreruleset Compatibility](https://img.shields.io/badge/Coreruleset%20Compatibility-100%25-brightgreen)](#)
-[![CodeQL](https://github.com/appsentinels/coraza/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/corazawaf/coraza/actions/workflows/codeql-analysis.yml)
-[![codecov](https://codecov.io/gh/corazawaf/coraza/branch/main/graph/badge.svg?token=6570804ZC7)](https://codecov.io/gh/corazawaf/coraza)
+[![CodeQL](https://github.com/appsentinels/coraza/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/appsentinels/coraza/actions/workflows/codeql-analysis.yml)
+[![codecov](https://codecov.io/gh/appsentinels/coraza/branch/main/graph/badge.svg?token=6570804ZC7)](https://codecov.io/gh/appsentinels/coraza)
 [![Project Status: Active – The project has reached a stable, usable state and is being actively developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
 [![OWASP Production Project](https://img.shields.io/badge/owasp-production%20project-brightgreen)](https://owasp.org/www-project-coraza-web-application-firewall)
-[![GoDoc](https://godoc.org/github.com/appsentinels/coraza?status.svg)](https://godoc.org/github.com/corazawaf/coraza/v3)
+[![GoDoc](https://godoc.org/github.com/appsentinels/coraza?status.svg)](https://godoc.org/github.com/appsentinels/coraza/v3)
 
 Coraza is an open source, enterprise-grade, high performance Web Application Firewall (WAF) ready to protect your beloved applications. It is written in Go, supports ModSecurity SecLang rulesets and is 100% compatible with the OWASP Core Rule Set v4.
 
@@ -43,7 +43,7 @@ The Coraza Project maintains implementations and plugins for the following serve
 * [Caddy Reverse Proxy and Webserver Plugin](https://github.com/appsentinels/coraza-caddy) - stable, needs a maintainer
 * [Proxy WASM extension](https://github.com/appsentinels/coraza-proxy-wasm) for proxies with proxy-wasm support (e.g. Envoy) - stable, still under development
 * [HAProxy SPOE Plugin](https://github.com/appsentinels/coraza-spoa) - experimental
-* [Coraza C Library (For nginx, etc)](https://github.com/corazawaf/libcoraza) - experimental
+* [Coraza C Library (For nginx, etc)](https://github.com/appsentinels/libcoraza) - experimental
 
 ## Prerequisites
 
@@ -180,7 +180,7 @@ First and foremost, huge thanks to [Juan Pablo Tosso](https://twitter.com/jptoss
 Today we have lots of amazing contributors, we could not have done this without you!
 
 <a href="https://github.com/appsentinels/coraza/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=corazawaf/coraza" />
+  <img src="https://contrib.rocks/image?repo=appsentinels/coraza" />
 </a>
 
 Made with [contrib.rocks](https://contrib.rocks).
