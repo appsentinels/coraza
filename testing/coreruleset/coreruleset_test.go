@@ -29,11 +29,11 @@ import (
 	"github.com/coreruleset/go-ftw/test"
 	"github.com/rs/zerolog"
 
-	coreruleset "github.com/corazawaf/coraza-coreruleset"
-	crstests "github.com/corazawaf/coraza-coreruleset/tests"
-	"github.com/corazawaf/coraza/v3"
-	txhttp "github.com/corazawaf/coraza/v3/http"
-	"github.com/corazawaf/coraza/v3/types"
+	coreruleset "github.com/appsentinels/coraza-coreruleset"
+	crstests "github.com/appsentinels/coraza-coreruleset/tests"
+	"github.com/appsentinels/coraza/v3"
+	txhttp "github.com/appsentinels/coraza/v3/http"
+	"github.com/appsentinels/coraza/v3/types"
 )
 
 func BenchmarkCRSCompilation(b *testing.B) {

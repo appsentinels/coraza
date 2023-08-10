@@ -12,9 +12,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/corazawaf/coraza/v3/internal/corazawaf"
-	"github.com/corazawaf/coraza/v3/internal/environment"
-	"github.com/corazawaf/coraza/v3/internal/io"
+	"github.com/appsentinels/coraza/v3/internal/corazawaf"
+	"github.com/appsentinels/coraza/v3/internal/environment"
+	"github.com/appsentinels/coraza/v3/internal/io"
 )
 
 // maxIncludeRecursion is used to avoid DDOS by including files that include

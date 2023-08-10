@@ -1,11 +1,11 @@
-module github.com/corazawaf/coraza/v3/testing/coreruleset
+module github.com/appsentinels/coraza/v3/testing/coreruleset
 
 go 1.18
 
 require (
 	github.com/bmatcuk/doublestar/v4 v4.3.0
-	github.com/corazawaf/coraza-coreruleset v0.0.0-20230330101229-43b851256042
-	github.com/corazawaf/coraza/v3 v3.0.0-20221004054810-060cedcb166d
+	github.com/appsentinels/coraza-coreruleset v0.0.0-20230330101229-43b851256042
+	github.com/appsentinels/coraza/v3 v3.0.0-20221004054810-060cedcb166d
 	github.com/coreruleset/go-ftw v0.4.9
 	github.com/rs/zerolog v1.28.0
 )

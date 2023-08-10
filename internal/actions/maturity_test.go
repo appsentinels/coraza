@@ -6,7 +6,7 @@ package actions
 import (
 	"testing"
 
-	"github.com/corazawaf/coraza/v3/internal/corazawaf"
+	"github.com/appsentinels/coraza/v3/internal/corazawaf"
 )
 
 func TestMaturityInit(t *testing.T) {

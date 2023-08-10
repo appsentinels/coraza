@@ -4,8 +4,8 @@
 package plugins
 
 import (
-	"github.com/corazawaf/coraza/v3/experimental/plugins/plugintypes"
-	"github.com/corazawaf/coraza/v3/internal/transformations"
+	"github.com/appsentinels/coraza/v3/experimental/plugins/plugintypes"
+	"github.com/appsentinels/coraza/v3/internal/transformations"
 )
 
 // RegisterTransformation registers a transformation by name

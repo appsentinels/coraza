@@ -14,8 +14,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/corazawaf/coraza/v3"
-	"github.com/corazawaf/coraza/v3/types"
+	"github.com/appsentinels/coraza/v3"
+	"github.com/appsentinels/coraza/v3/types"
 )
 
 // processRequest fills all transaction variables from an http.Request object

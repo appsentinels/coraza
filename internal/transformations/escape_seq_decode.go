@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	utils "github.com/corazawaf/coraza/v3/internal/strings"
+	utils "github.com/appsentinels/coraza/v3/internal/strings"
 )
 
 func escapeSeqDecode(input string) (string, bool, error) {

@@ -4,10 +4,10 @@
 package plugintypes
 
 import (
-	"github.com/corazawaf/coraza/v3/collection"
-	"github.com/corazawaf/coraza/v3/debuglog"
-	"github.com/corazawaf/coraza/v3/types"
-	"github.com/corazawaf/coraza/v3/types/variables"
+	"github.com/appsentinels/coraza/v3/collection"
+	"github.com/appsentinels/coraza/v3/debuglog"
+	"github.com/appsentinels/coraza/v3/types"
+	"github.com/appsentinels/coraza/v3/types/variables"
 )
 
 // TransactionState tracks the state of a transaction for use in actions and operators.
