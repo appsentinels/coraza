@@ -131,6 +131,9 @@ type WAF struct {
 
 	// Configures the maximum number of ARGS that will be accepted for processing.
 	ArgumentLimit int
+
+	//Hide Values for privacy concerns default is false - MJ
+	HideValues bool
 }
 
 // NewTransaction Creates a new initialized transaction for this WAF instance
@@ -283,6 +286,7 @@ func NewWAF() *WAF {
 		AuditLogWriterConfig:      auditlog.NewConfig(),
 		Logger:                    logger,
 		ArgumentLimit:             1000,
+		HideValues:                false,
 	}
 
 	if environment.HasAccessToFS {
