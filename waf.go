@@ -148,8 +148,17 @@ func (w wafWrapper) WafUpdateRuleFlags(flagName string, flagValue interface{}) b
 	case "recordruletimingsclear":
 		corazawaf.ClearRuleTimingsRecord()
 		ret_val = true
+	case "hideflag":
+		if val, ok := flagValue.(bool); ok {
+			fmt.Println("WafUpdateRuleFlags: updating hideflag: ", w.waf.HideValues, val)
+			w.waf.HideValues = val //a direct write from wrapper to internal object -- should be ok
+			ret_val = true
+		}
 	default:
-		fmt.Println("WafUpdateRuleFlags: Invalid parameters: ", flagName, flagValue)
+		//fmt.Println("WafUpdateRuleFlags: Invalid parameters: ", flagName, flagValue)
+	}
+	if ret_val == false {
+		fmt.Println("WafUpdateRuleFlags: Invalid parameters : ", flagName, " or value: ", flagValue)
 	}
 	return ret_val
 }

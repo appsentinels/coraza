@@ -457,10 +457,15 @@ func (tx *Transaction) matchVariable(match *corazarules.MatchData) {
 	matchedVarName := tx.variables.matchedVarName
 	matchedVarName.Reset()
 
-	matchedVars.Add(varName, match.Value_)
-	tx.variables.matchedVar.Set(match.Value_)
-
+	if tx.WAF.HideValues == true {
+		matchedVars.Add(varName, "APPSENTINELS_HIDDEN")
+		tx.variables.matchedVar.Set("APPSENTINELS_HIDDEN")
+	} else {
+		matchedVars.Add(varName, match.Value_)
+		tx.variables.matchedVar.Set(match.Value_)
+	}
 	matchedVarName.Set(varName)
+
 }
 
 // MatchRule Matches a rule to be logged
