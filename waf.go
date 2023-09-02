@@ -142,7 +142,7 @@ func (w wafWrapper) WafUpdateRuleFlags(flagName string, flagValue interface{}) b
 		}
 	case "recordruletimings":
 		if val, ok := flagValue.(bool); ok {
-			corazawaf.UpdatePrintTransformationRules(val)
+			corazawaf.UpdateRecordRuleTimings(val)
 			ret_val = true
 		}
 	case "recordruletimingsclear":
