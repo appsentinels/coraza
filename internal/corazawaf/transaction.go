@@ -1038,6 +1038,12 @@ func (tx *Transaction) ProcessRequestBytes(b []byte) (*types.Interruption, error
 		}
 		return nil, nil
 	}
+	bodyLen := int64(len(b))
+	if bodyLen >= tx.RequestBodyLimit { //now action can be tx.WAF.RequestBodyLimitAction == types.BodyLimitActionReject or types.BodyLimitActionProcessPartial -- failing for now
+		errMsg := "Coraza: ProcessRequestBytes: Exceeded body size: " + strconv.Itoa(int(bodyLen)) + " Limit: " + strconv.Itoa(int(tx.RequestBodyLimit))
+		return nil, errors.New(errMsg)
+	}
+
 	mime := ""
 	if m := tx.variables.requestHeaders.Get("content-type"); len(m) > 0 {
 		mime = m[0]
