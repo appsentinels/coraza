@@ -477,16 +477,20 @@ func (r *Rule) transformArg(arg types.MatchData, argIdx int, cache map[transform
 				fmt.Println("  transformArg: transformations: ", r.transformations)
 			}
 		}
+		var startTime *time.Time = nil
 
-		startTime := time.Now()
+		if print_transformation_rules == true {
+			currentTime := time.Now()
+			startTime = &currentTime
+		}
 		switch {
 		case len(r.transformations) == 0:
 			return []string{arg.Value()}, nil
 		case arg.Variable().Name() == "TX":
 			// no cache for TX
 			arg, errs := r.executeTransformations(arg.Value())
-			if print_transformation_rules {
-				fmt.Println("---- transformArg---- TX: ", r.ID_, r.ParentID_, time.Since(startTime), arg)
+			if startTime != nil {
+				fmt.Println("---- transformArg---- TX: ", r.ID_, r.ParentID_, time.Since(*startTime), arg)
 			}
 			return []string{arg}, errs
 		default:
@@ -500,8 +504,8 @@ func (r *Rule) transformArg(arg types.MatchData, argIdx int, cache map[transform
 				transformationsID: r.transformationsID,
 			}
 			if cached, ok := cache[key]; ok {
-				if print_transformation_rules {
-					fmt.Println("---- transformArg: ----: cached", time.Since(startTime), cached.args)
+				if startTime != nil {
+					fmt.Println("---- transformArg: ----: cached", time.Since(*startTime), cached.args)
 				}
 				return cached.args, cached.errs
 			} else {
@@ -512,8 +516,8 @@ func (r *Rule) transformArg(arg types.MatchData, argIdx int, cache map[transform
 					args: args,
 					errs: es,
 				}
-				if print_transformation_rules {
-					fmt.Println("---- transformArg: ----: non-cached", time.Since(startTime), args)
+				if startTime != nil {
+					fmt.Println("---- transformArg: ----: non-cached", time.Since(*startTime), args)
 				}
 				return args, errs
 			}
