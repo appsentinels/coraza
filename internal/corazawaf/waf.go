@@ -149,6 +149,16 @@ func (w *WAF) NewTransactionWithID(id string) *Transaction {
 	return w.newTransactionWithID(id)
 }
 
+// Sachin Changes for enabling debug logging without reloading rules again
+// [[
+var transactionLoggingLevel int = 0
+
+func (w *WAF) SetTransactionDebugLevel(debugLevel int) {
+	transactionLoggingLevel = debugLevel
+}
+
+// ]]
+
 // NewTransactionWithID Creates a new initialized transaction for this WAF instance
 // Using the specified ID
 func (w *WAF) newTransactionWithID(id string) *Transaction {
@@ -177,6 +187,12 @@ func (w *WAF) newTransactionWithID(id string) *Transaction {
 	tx.stopWatches = map[types.RulePhase]int64{}
 	tx.WAF = w
 	tx.debugLogger = w.Logger.With(debuglog.Str("tx_id", tx.id))
+	// Sachin Changes for enabling debug logging without reloading rules again
+	// [[
+	if transactionLoggingLevel > 0 {
+		tx.SetDebugLogLevel(debuglog.Level(transactionLoggingLevel))
+	}
+	// ]]
 	tx.Timestamp = time.Now().UnixNano()
 	tx.audit = false
 

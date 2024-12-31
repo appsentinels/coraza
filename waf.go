@@ -25,6 +25,11 @@ type WAF interface {
 	// MJ Change
 	WafGetRulesInfo(flagName string) interface{}
 	WafUpdateRuleFlags(flagName string, flagValue interface{}) bool
+
+	// Sachin Changes for enabling debug logging without reloading rules again
+	// [[
+	SetTransactionDebugLevel(debugLevel int)
+	// ]]
 }
 
 // NewWAF creates a new WAF instance with the provided configuration.
@@ -131,6 +136,14 @@ func (w wafWrapper) NewTransactionWithID(id string) types.Transaction {
 func (w wafWrapper) WafGetRulesInfo(flagName string) interface{} {
 	return corazawaf.GetRuleTimingsRecord() //only 1 supported as of now
 }
+
+// Sachin Changes for enabling debug logging without reloading rules again
+// [[
+func (w wafWrapper) SetTransactionDebugLevel(debugLevel int) {
+	w.waf.SetTransactionDebugLevel(debugLevel)
+}
+
+// ]]
 
 func (w wafWrapper) WafUpdateRuleFlags(flagName string, flagValue interface{}) bool {
 	ret_val := false
