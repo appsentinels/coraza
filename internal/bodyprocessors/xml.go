@@ -88,7 +88,9 @@ func readXML(reader io.Reader) (map[string]string, error) {
 	dec.Entity = xml.HTMLEntity
 
 	// Track namespace prefixes
-	nsMap := make(map[string]string) // URI -> prefix
+	nsMap := make(map[string]string)  // URI -> prefix
+	defaultNS := make(map[int]string) // depth -> default namespace
+	depth := 0
 
 	var path []string
 	for {
@@ -102,25 +104,31 @@ func readXML(reader io.Reader) (map[string]string, error) {
 
 		switch tok := token.(type) {
 		case xml.StartElement:
+			depth++
 			// Update namespace mappings
 			for _, attr := range tok.Attr {
-				if attr.Name.Space == "xmlns" || (attr.Name.Space == "" && attr.Name.Local == "xmlns") {
-					prefix := attr.Name.Local
-					if attr.Name.Space == "" {
-						prefix = "xmlns"
-					}
-					nsMap[attr.Value] = prefix
+				if attr.Name.Space == "xmlns" {
+					nsMap[attr.Value] = attr.Name.Local
+				} else if attr.Name.Space == "" && attr.Name.Local == "xmlns" {
+					defaultNS[depth] = attr.Value
 				}
 			}
 
 			// Handle namespaces in element names
 			elementName := tok.Name.Local
 			if tok.Name.Space != "" {
-				if prefix, ok := nsMap[tok.Name.Space]; ok && prefix != "xmlns" {
-					elementName = prefix + ":" + elementName
-				} else {
-					// If we don't have a mapping, use a default prefix
-					elementName = "ns:" + elementName
+				// Check if this is a default namespace
+				isDefault := false
+				for d := depth; d > 0; d-- {
+					if ns, ok := defaultNS[d]; ok && ns == tok.Name.Space {
+						isDefault = true
+						break
+					}
+				}
+				if !isDefault {
+					if prefix, ok := nsMap[tok.Name.Space]; ok {
+						elementName = prefix + ":" + elementName
+					}
 				}
 			}
 			path = append(path, elementName)
@@ -135,8 +143,6 @@ func readXML(reader io.Reader) (map[string]string, error) {
 				if attr.Name.Space != "" {
 					if prefix, ok := nsMap[attr.Name.Space]; ok {
 						attrName = prefix + ":" + attrName
-					} else {
-						attrName = "ns:" + attrName
 					}
 				}
 				attrPath := currentPath + "." + attrName
@@ -147,6 +153,8 @@ func readXML(reader io.Reader) (map[string]string, error) {
 			if len(path) > 0 {
 				path = path[:len(path)-1]
 			}
+			delete(defaultNS, depth)
+			depth--
 
 		case xml.CharData:
 			if content := strings.TrimSpace(string(tok)); content != "" {
