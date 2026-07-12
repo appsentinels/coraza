@@ -4,6 +4,8 @@
 package transformations
 
 import (
+	"unicode/utf8"
+
 	"github.com/appsentinels/coraza/v3/internal/strings"
 )
 
@@ -20,7 +22,6 @@ func inplaceUniDecode(input string, d []byte, pos int) string {
 	inputLen := len(d)
 	i := pos
 	c := pos
-	hmap := -1
 
 	for i < inputLen {
 		if d[i] == '%' {
@@ -30,43 +31,36 @@ func inplaceUniDecode(input string, d []byte, pos int) string {
 				if i+5 < inputLen {
 					/* We have at least 4 data bytes. */
 					if (strings.ValidHex(input[i+2])) && (strings.ValidHex(input[i+3])) && (strings.ValidHex(input[i+4])) && (strings.ValidHex(input[i+5])) {
-						/*
-							TODO unicode mapping
-							code = 0
-							fact = 1
-							for j = 5; j >= 2; j-- {
-								if strings.ValidHex((input[i+j])) {
-									if input[i+j] >= 97 {
-										xv = (int(input[i+j]) - 97) + 10
-									} else if input[i+j] >= 65 {
-										xv = (int(input[i+j]) - 65) + 10
-									} else {
-										xv = int(input[i+j]) - 48
-									}
-									code += (xv * fact)
-									fact *= 16
-								}
-							}
-							if code >= 0 && code <= 65535 {
-								t := transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
-								result, _, _ := transform.String(t, string(code))
-								hmap = result
-							}*/
+						hi := strings.X2c(input[i+2:])
+						lo := strings.X2c(input[i+4:])
 
-						if hmap != -1 {
-							d[c] = byte(hmap)
-						} else {
-							/* We first make use of the lower byte here,
-							 * ignoring the higher byte. */
-							d[c] = strings.X2c(input[i+4:])
-
-							/* Full width ASCII (ff01 - ff5e)
-							 * needs 0x20 added */
-							if (d[c] > 0x00) && (d[c] < 0x5f) && ((input[i+2] == 'f') || (input[i+2] == 'F')) && ((input[i+3] == 'f') || (input[i+3] == 'F')) {
+						switch {
+						case hi == 0x00:
+							/* Codepoint fits in a single byte (Latin-1
+							 * range, U+0000-U+00FF): keep it as-is. */
+							d[c] = lo
+							c++
+						case hi == 0xff:
+							/* Full width ASCII (U+FF00-U+FFEF) mirrors IIS's
+							 * best-fit decoding onto standard-width ASCII;
+							 * ff01-ff5e additionally need 0x20 added. */
+							d[c] = lo
+							if lo > 0x00 && lo < 0x5f {
 								d[c] += 0x20
 							}
+							c++
+						default:
+							/* Any other codepoint: emit its actual UTF-8
+							 * encoding instead of truncating to the lower
+							 * byte and discarding the higher byte, which
+							 * corrupts non-Latin scripts (e.g. Arabic,
+							 * Cyrillic, CJK) into unrelated ASCII
+							 * punctuation and causes false positives in
+							 * downstream detection (e.g. libinjection).
+							 * See github.com/SpiderLabs/ModSecurity/issues/2100. */
+							code := rune(hi)<<8 | rune(lo)
+							c += utf8.EncodeRune(d[c:], code)
 						}
-						c++
 						i += 6
 					} else {
 						/* Invalid data, skip %u. */
