@@ -63,6 +63,23 @@ type WAFConfig interface {
 
 	// WithRootFS configures the root file system.
 	WithRootFS(fs fs.FS) WAFConfig
+
+	// WithLegacyURLDecodeUni reverts the urlDecodeUni transformation to its
+	// pre-fix, ModSecurity-compatible behavior, which truncates %uXXXX
+	// codepoints outside the Latin-1 and IIS full-width ASCII ranges to
+	// their lower byte, discarding the upper byte. That legacy behavior
+	// corrupts non-Latin scripts (Arabic, Cyrillic, CJK, ...) into
+	// unrelated ASCII punctuation and can cause false positives in
+	// downstream detectors such as libinjection.
+	//
+	// WARNING: this is a process-wide switch, not a per-WAF-instance one.
+	// The transformation registry is shared by every WAF instance in the
+	// process, so calling this on any WAFConfig used to build a WAF
+	// affects urlDecodeUni for every WAF instance/policy in the process,
+	// not just the one built from this config. It is intended as an
+	// emergency rollback lever, not a per-tenant setting, and cannot be
+	// turned back off within the same process once requested.
+	WithLegacyURLDecodeUni() WAFConfig
 }
 
 // NewWAFConfig creates a new WAFConfig with the default settings.
@@ -105,6 +122,7 @@ type wafConfig struct {
 	debugLogger              debuglog.Logger
 	errorCallback            func(rule types.MatchedRule)
 	fsRoot                   fs.FS
+	legacyURLDecodeUni       bool
 }
 
 func (c *wafConfig) WithRules(rules ...*corazawaf.Rule) WAFConfig {
@@ -158,6 +176,12 @@ func (c *wafConfig) WithErrorCallback(logger func(rule types.MatchedRule)) WAFCo
 func (c *wafConfig) WithRootFS(fs fs.FS) WAFConfig {
 	ret := c.clone()
 	ret.fsRoot = fs
+	return ret
+}
+
+func (c *wafConfig) WithLegacyURLDecodeUni() WAFConfig {
+	ret := c.clone()
+	ret.legacyURLDecodeUni = true
 	return ret
 }
 

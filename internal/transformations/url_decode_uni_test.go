@@ -5,6 +5,8 @@ package transformations
 
 import (
 	"fmt"
+	"os"
+	"os/exec"
 	"testing"
 
 	"github.com/corazawaf/libinjection-go"
@@ -134,6 +136,76 @@ func TestArabicSQLiFalsePositiveRegression(t *testing.T) {
 			t.Errorf("false negative: genuine SQLi payload no longer flagged: %q", out)
 		}
 	})
+}
+
+// TestInplaceUniDecodeLegacyMode exercises both decode modes directly via
+// the explicit legacy parameter, without touching the process-wide
+// EnableLegacyURLDecodeUni switch (see TestEnableLegacyURLDecodeUni for
+// that, which needs subprocess isolation because the switch can't be
+// turned back off within a process).
+func TestInplaceUniDecodeLegacyMode(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       string
+		wantDefault string // legacy=false: corrected behavior
+		wantLegacy  string // legacy=true: pre-fix truncating behavior
+	}{
+		{"arabic_alef_haa", "%u0627%u062d", "اح", "'-"},
+		{"latin1_e_acute", "%u00e9", "\xe9", "\xe9"}, // unaffected by the flag either way
+		{"fullwidth_quote", "%uff07", "'", "'"},      // unaffected by the flag either way
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			gotDefault := inplaceUniDecode(tc.input, []byte(tc.input), 0, false)
+			if gotDefault != tc.wantDefault {
+				t.Errorf("legacy=false: got %q, want %q", gotDefault, tc.wantDefault)
+			}
+
+			gotLegacy := inplaceUniDecode(tc.input, []byte(tc.input), 0, true)
+			if gotLegacy != tc.wantLegacy {
+				t.Errorf("legacy=true: got %q, want %q", gotLegacy, tc.wantLegacy)
+			}
+		})
+	}
+}
+
+// TestEnableLegacyURLDecodeUni verifies the public EnableLegacyURLDecodeUni
+// switch actually flips urlDecodeUni's behavior end to end. It runs in a
+// subprocess because the switch is a one-way, process-wide atomic (see
+// legacyURLDecodeUni) - calling it here directly would permanently change
+// urlDecodeUni's behavior for every other test in this package that
+// happens to run afterward in the same test binary.
+func TestEnableLegacyURLDecodeUni(t *testing.T) {
+	const subprocessEnv = "CORAZA_TEST_ENABLE_LEGACY_URLDECODEUNI_SUBPROCESS"
+
+	if os.Getenv(subprocessEnv) == "1" {
+		before, _, err := urlDecodeUni("%u0627%u062d")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if before != "اح" {
+			t.Fatalf("before EnableLegacyURLDecodeUni: got %q, want %q (corrected default)", before, "اح")
+		}
+
+		EnableLegacyURLDecodeUni()
+
+		after, _, err := urlDecodeUni("%u0627%u062d")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if after != "'-" {
+			t.Fatalf("after EnableLegacyURLDecodeUni: got %q, want %q (legacy truncation)", after, "'-")
+		}
+		return
+	}
+
+	cmd := exec.Command(os.Args[0], "-test.run=^TestEnableLegacyURLDecodeUni$", "-test.v")
+	cmd.Env = append(os.Environ(), subprocessEnv+"=1")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("subprocess failed: %v\n%s", err, out)
+	}
 }
 
 func BenchmarkURLDecode(b *testing.B) {

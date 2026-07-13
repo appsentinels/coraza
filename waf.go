@@ -8,6 +8,7 @@ import (
 
 	"github.com/appsentinels/coraza/v3/internal/corazawaf"
 	"github.com/appsentinels/coraza/v3/internal/seclang"
+	"github.com/appsentinels/coraza/v3/internal/transformations"
 	"github.com/appsentinels/coraza/v3/types"
 )
 
@@ -40,6 +41,12 @@ func NewWAF(config WAFConfig) (WAF, error) {
 
 	if c.debugLogger != nil {
 		waf.Logger = c.debugLogger
+	}
+
+	if c.legacyURLDecodeUni {
+		// WARNING: process-wide switch, not scoped to this WAF instance.
+		// See WAFConfig.WithLegacyURLDecodeUni for details.
+		transformations.EnableLegacyURLDecodeUni()
 	}
 
 	parser := seclang.NewParser(waf)
@@ -132,7 +139,7 @@ func (w wafWrapper) NewTransactionWithID(id string) types.Transaction {
 	return w.waf.NewTransactionWithID(id)
 }
 
-//MJ changes [ --
+// MJ changes [ --
 func (w wafWrapper) WafGetRulesInfo(flagName string) interface{} {
 	return corazawaf.GetRuleTimingsRecord() //only 1 supported as of now
 }
