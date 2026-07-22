@@ -4,23 +4,58 @@
 package transformations
 
 import (
+	"sync/atomic"
+	"unicode/utf8"
+
 	"github.com/appsentinels/coraza/v3/internal/strings"
 )
+
+// legacyURLDecodeUni switches urlDecodeUni back to the pre-fix behavior,
+// which truncates any %uXXXX codepoint outside the Latin-1 and IIS
+// full-width ASCII ranges to its lower byte, discarding the upper byte.
+// That behavior corrupts non-Latin scripts (Arabic, Cyrillic, CJK, ...)
+// into unrelated ASCII punctuation and can cause false positives in
+// downstream detectors such as libinjection.
+//
+// This is a process-wide switch, not a per-WAF-instance one: the
+// transformation registry is a single map shared by every WAF instance in
+// the process, so EnableLegacyURLDecodeUni affects urlDecodeUni for every
+// WAF/policy running in the process, not just the one whose WAFConfig
+// requested it. It is meant as an emergency rollback lever (e.g. to
+// immediately restore byte-for-byte ModSecurity-compatible behavior if the
+// fixed behavior is ever found to regress some detection), not a
+// per-tenant setting. There is no corresponding "disable" call by design:
+// once engaged for a process, it stays engaged until the process restarts
+// without requesting it again, so one WAF instance's default config can
+// never silently undo another instance's explicit opt-in.
+var legacyURLDecodeUni atomic.Bool
+
+// EnableLegacyURLDecodeUni turns on the legacy (pre-fix) urlDecodeUni
+// behavior for the remainder of the process's lifetime. See
+// legacyURLDecodeUni for the scoping caveats.
+func EnableLegacyURLDecodeUni() {
+	legacyURLDecodeUni.Store(true)
+}
 
 func urlDecodeUni(data string) (string, bool, error) {
 	for i := 0; i < len(data); i++ {
 		if data[i] == '%' || data[i] == '+' {
-			return inplaceUniDecode(data, []byte(data), i), true, nil
+			return inplaceUniDecode(data, []byte(data), i, legacyURLDecodeUni.Load()), true, nil
 		}
 	}
 	return data, false, nil
 }
 
-func inplaceUniDecode(input string, d []byte, pos int) string {
+// inplaceUniDecode decodes data in place. legacy selects which behavior is
+// used for %uXXXX codepoints outside the Latin-1 and IIS full-width ASCII
+// ranges: the corrected UTF-8 encoding (legacy=false, the default) or the
+// pre-fix lower-byte truncation (legacy=true, see legacyURLDecodeUni). It
+// is a plain parameter rather than reading the global switch internally so
+// both code paths can be tested directly without touching process-wide state.
+func inplaceUniDecode(input string, d []byte, pos int, legacy bool) string {
 	inputLen := len(d)
 	i := pos
 	c := pos
-	hmap := -1
 
 	for i < inputLen {
 		if d[i] == '%' {
@@ -30,43 +65,47 @@ func inplaceUniDecode(input string, d []byte, pos int) string {
 				if i+5 < inputLen {
 					/* We have at least 4 data bytes. */
 					if (strings.ValidHex(input[i+2])) && (strings.ValidHex(input[i+3])) && (strings.ValidHex(input[i+4])) && (strings.ValidHex(input[i+5])) {
-						/*
-							TODO unicode mapping
-							code = 0
-							fact = 1
-							for j = 5; j >= 2; j-- {
-								if strings.ValidHex((input[i+j])) {
-									if input[i+j] >= 97 {
-										xv = (int(input[i+j]) - 97) + 10
-									} else if input[i+j] >= 65 {
-										xv = (int(input[i+j]) - 65) + 10
-									} else {
-										xv = int(input[i+j]) - 48
-									}
-									code += (xv * fact)
-									fact *= 16
-								}
-							}
-							if code >= 0 && code <= 65535 {
-								t := transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
-								result, _, _ := transform.String(t, string(code))
-								hmap = result
-							}*/
+						hi := strings.X2c(input[i+2:])
+						lo := strings.X2c(input[i+4:])
 
-						if hmap != -1 {
-							d[c] = byte(hmap)
-						} else {
-							/* We first make use of the lower byte here,
-							 * ignoring the higher byte. */
-							d[c] = strings.X2c(input[i+4:])
-
-							/* Full width ASCII (ff01 - ff5e)
-							 * needs 0x20 added */
-							if (d[c] > 0x00) && (d[c] < 0x5f) && ((input[i+2] == 'f') || (input[i+2] == 'F')) && ((input[i+3] == 'f') || (input[i+3] == 'F')) {
+						switch {
+						case legacy:
+							/* Pre-fix ModSecurity-compatible behavior: always
+							 * truncate to the lower byte, discarding the
+							 * higher byte, with the same full-width ASCII
+							 * (ff01-ff5e) exception. See
+							 * legacyURLDecodeUni for why this exists. */
+							d[c] = lo
+							if hi == 0xff && lo > 0x00 && lo < 0x5f {
 								d[c] += 0x20
 							}
+							c++
+						case hi == 0x00:
+							/* Codepoint fits in a single byte (Latin-1
+							 * range, U+0000-U+00FF): keep it as-is. */
+							d[c] = lo
+							c++
+						case hi == 0xff:
+							/* Full width ASCII (U+FF00-U+FFEF) mirrors IIS's
+							 * best-fit decoding onto standard-width ASCII;
+							 * ff01-ff5e additionally need 0x20 added. */
+							d[c] = lo
+							if lo > 0x00 && lo < 0x5f {
+								d[c] += 0x20
+							}
+							c++
+						default:
+							/* Any other codepoint: emit its actual UTF-8
+							 * encoding instead of truncating to the lower
+							 * byte and discarding the higher byte, which
+							 * corrupts non-Latin scripts (e.g. Arabic,
+							 * Cyrillic, CJK) into unrelated ASCII
+							 * punctuation and causes false positives in
+							 * downstream detection (e.g. libinjection).
+							 * See github.com/SpiderLabs/ModSecurity/issues/2100. */
+							code := rune(hi)<<8 | rune(lo)
+							c += utf8.EncodeRune(d[c:], code)
 						}
-						c++
 						i += 6
 					} else {
 						/* Invalid data, skip %u. */
